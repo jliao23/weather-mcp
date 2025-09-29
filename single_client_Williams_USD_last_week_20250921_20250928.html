@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Client Report: Williams USD</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #f5f7fa; }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white; padding: 2rem 0; text-align: center;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+        .header h1 { font-size: 2.5rem; margin-bottom: 0.5rem; }
+        .header p { font-size: 1.2rem; opacity: 0.9; }
+        .header .date-range { font-size: 1rem; opacity: 0.8; margin-top: 0.5rem; }
+        
+        .controls {
+            max-width: 1200px; margin: 2rem auto; padding: 0 1rem;
+            background: white; border-radius: 10px; padding: 1.5rem;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .search-container { display: flex; gap: 1rem; flex-wrap: wrap; align-items: center; }
+        .search-input {
+            flex: 1; min-width: 300px; padding: 0.75rem; border: 2px solid #e1e5e9;
+            border-radius: 8px; font-size: 1rem;
+        }
+        .search-input:focus { outline: none; border-color: #667eea; }
+        .filter-buttons { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+        .filter-btn {
+            padding: 0.5rem 1rem; border: none; background: #e1e5e9; color: #333;
+            border-radius: 20px; cursor: pointer; transition: all 0.2s;
+        }
+        .filter-btn.active { background: #667eea; color: white; }
+        .filter-btn:hover { background: #667eea; color: white; }
+        
+        .stats {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem; margin: 1rem 0;
+        }
+        .stat-card {
+            background: #f8f9fa; padding: 1rem; border-radius: 8px; text-align: center;
+        }
+        .stat-number { font-size: 2rem; font-weight: bold; color: #667eea; }
+        .stat-label { color: #6c757d; font-size: 0.9rem; }
+        
+        .clients-grid {
+            max-width: 1200px; margin: 0 auto; padding: 0 1rem;
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(500px, 1fr));
+            gap: 2rem; margin-bottom: 3rem;
+        }
+        
+        /* Single client mode - center the card */
+        .single-client .clients-grid {
+            grid-template-columns: 1fr;
+            max-width: 800px;
+        }
+        
+        .client-card {
+            background: white; border-radius: 15px; padding: 1.5rem;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .client-card:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(0,0,0,0.12); }
+        
+        .client-header { display: flex; justify-content: space-between; align-items: start; margin-bottom: 1rem; }
+        .client-name { font-size: 1.3rem; font-weight: 600; color: #2c3e50; }
+        .client-status { padding: 0.25rem 0.75rem; border-radius: 20px; font-size: 0.8rem; font-weight: 500; }
+        .status-both { background: #d4edda; color: #155724; }
+        .status-asana-only { background: #cce7ff; color: #004085; }
+        .status-close-only { background: #fff3cd; color: #856404; }
+        
+        .account-managers { margin-bottom: 1rem; }
+        .account-managers strong { color: #495057; }
+        .managers-list { margin-top: 0.25rem; }
+        .manager-tag {
+            display: inline-block; background: #e9ecef; color: #495057;
+            padding: 0.2rem 0.6rem; border-radius: 12px; font-size: 0.8rem; margin: 0.1rem;
+        }
+        
+        .section { margin: 1rem 0; }
+        .section-title {
+            font-weight: 600; color: #2c3e50; margin-bottom: 0.5rem;
+            padding-bottom: 0.25rem; border-bottom: 2px solid #e9ecef;
+        }
+        
+        .asana-section { border-left: 4px solid #3498db; padding-left: 1rem; }
+        .close-section { border-left: 4px solid #e74c3c; padding-left: 1rem; }
+        
+        .progress-bar {
+            background: #e9ecef; height: 8px; border-radius: 4px; overflow: hidden; margin: 0.5rem 0;
+        }
+        .progress-fill {
+            background: #28a745; height: 100%; transition: width 0.3s ease;
+        }
+        
+        .issues-list { list-style: none; }
+        .issues-list li {
+            padding: 0.3rem 0; color: #dc3545; font-size: 0.9rem;
+        }
+        .issues-list li::before { content: "⚠️ "; margin-right: 0.5rem; }
+        
+        .activities-summary {
+            background: #f8f9fa; padding: 1rem; border-radius: 8px; margin: 0.5rem 0;
+        }
+        .activity-count {
+            font-weight: 600; color: #28a745; font-size: 1.1rem;
+        }
+        
+        .analysis-text {
+            line-height: 1.6; color: #495057; font-size: 0.95rem;
+            white-space: pre-line; margin: 0.5rem 0;
+        }
+        
+        .no-data { text-align: center; color: #6c757d; font-style: italic; padding: 1rem; }
+        
+        .footer {
+            text-align: center; padding: 2rem; background: #2c3e50; color: white;
+        }
+        
+        /* Expandable client cards */
+        .expand-toggle {
+            position: absolute;
+            top: 1.5rem;
+            right: 1.5rem;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 1.2rem;
+            transition: all 0.3s ease;
+        }
+        .expand-toggle:hover {
+            background: #5a67d8;
+            transform: scale(1.1);
+        }
+        .expand-toggle.expanded {
+            transform: rotate(180deg);
+        }
+        
+        .client-details {
+            display: none;
+            margin-top: 1.5rem;
+            padding-top: 1.5rem;
+            border-top: 2px solid #e9ecef;
+        }
+        .client-details.expanded {
+            display: block;
+        }
+        
+        /* Enhanced sections for detailed view */
+        .detailed-section {
+            margin: 1.5rem 0;
+            background: #f8f9fa;
+            padding: 1rem;
+            border-radius: 8px;
+        }
+        
+        /* Expandable issues list */
+        .issues-container { position: relative; }
+        .issues-list { list-style: none; }
+        .issues-list li {
+            padding: 0.3rem 0; color: #dc3545; font-size: 0.9rem;
+        }
+        .issues-list li::before { content: "⚠️ "; margin-right: 0.5rem; }
+        
+        .issues-summary {
+            max-height: 120px;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .expand-issues-btn {
+            background: none; border: none; color: #667eea; cursor: pointer;
+            font-size: 0.9rem; margin-top: 0.5rem; text-decoration: underline;
+        }
+        .expand-issues-btn:hover { color: #5a67d8; }
+        
+        /* Task details */
+        .task-item {
+            background: white;
+            padding: 0.75rem;
+            margin: 0.5rem 0;
+            border-radius: 6px;
+            border-left: 3px solid #667eea;
+        }
+        
+        .task-name { font-weight: 600; color: #2c3e50; }
+        .task-meta { font-size: 0.8rem; color: #6c757d; margin-top: 0.25rem; }
+        
+        .activity-item {
+            background: white;
+            padding: 0.75rem;
+            margin: 0.5rem 0;
+            border-radius: 6px;
+            border-left: 3px solid #e74c3c;
+        }
+        
+        .activity-date { font-weight: 600; color: #2c3e50; }
+        .activity-content { margin-top: 0.25rem; }
+        .activity-type { 
+            display: inline-block;
+            background: #e9ecef; 
+            color: #495057;
+            padding: 0.1rem 0.4rem; 
+            border-radius: 10px; 
+            font-size: 0.7rem;
+            margin-bottom: 0.25rem;
+        }
+        
+        /* Hide search/filters in single client mode */
+        .single-client .search-container,
+        .single-client .stats {
+            display: none;
+        }
+        
+        @media (max-width: 768px) {
+            .clients-grid { grid-template-columns: 1fr; }
+            .search-container { flex-direction: column; align-items: stretch; }
+            .search-input { min-width: auto; }
+        }
+    </style>
+</head>
+<body class="single-client">
+    <div class="header">
+        <h1>Client Report</h1>
+        <p>Williams USD</p>
+        <div class="date-range">September 21, 2025 - September 28, 2025</div>
+    </div>
+    
+    <div class="controls">
+        <div class="search-container">
+            <input type="text" class="search-input" id="searchInput" 
+                   placeholder="Search by client name or account manager...">
+            <div class="filter-buttons">
+                <button class="filter-btn active" data-filter="all">All Clients</button>
+                <button class="filter-btn" data-filter="both">Both Systems</button>
+                <button class="filter-btn" data-filter="asana-only">Asana Only</button>
+                <button class="filter-btn" data-filter="close-only">Close Only</button>
+                <button class="filter-btn" data-filter="issues">Has Issues</button>
+            </div>
+        </div>
+        
+        <div class="stats" id="stats">
+            <div class="stat-card">
+                <div class="stat-number" id="totalClients">1</div>
+                <div class="stat-label">Total Clients</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="bothSystems">0</div>
+                <div class="stat-label">Both Systems</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="asanaOnly">0</div>
+                <div class="stat-label">Asana Only</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-number" id="closeOnly">0</div>
+                <div class="stat-label">Close Only</div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="clients-grid" id="clientsGrid">
+        
+        <div class="client-card" 
+             data-client-name="Williams USD"
+             data-account-managers="Michelle Van Peborgh, Juan Chen, Desiree Woo, Michelle, Desiree, Juan"
+             data-type="both"
+             data-has-issues="true">
+            <button class="expand-toggle">+</button>
+            <div class="client-summary">
+                
+        <div class="client-header">
+            <div class="client-name">Williams USD</div>
+            <div class="client-status status-both">Both Systems</div>
+        </div>
+        
+            <div class="account-managers">
+                <strong>Account Managers:</strong>
+                <div class="managers-list"><span class="manager-tag">Michelle Van Peborgh</span><span class="manager-tag">Juan Chen</span><span class="manager-tag">+4 more</span></div>
+            </div>
+        
+        <div class="summary-stats">
+            <div class="stat-item">
+                <span class="stat-label">Issues:</span>
+                <span class="stat-value text-danger">1</span>
+            </div>
+            <div class="stat-item">
+                <span class="stat-label">Activities:</span>
+                <span class="stat-value">8</span>
+            </div>
+        </div>
+        <style>
+        .summary-stats { display: flex; gap: 1rem; margin: 0.5rem 0; }
+        .stat-item { display: flex; flex-direction: column; align-items: center; }
+        .stat-label { font-size: 0.8rem; color: #6c757d; }
+        .stat-value { font-weight: 600; color: #2c3e50; }
+        .text-danger { color: #dc3545 !important; }
+        </style>
+        
+            </div>
+            <div class="client-details">
+                
+        <div class="detailed-section asana-section">
+            <div class="section-title">Asana Project Details</div>
+            
+        <div class="milestone-details">
+            <strong>Milestone Progress:</strong> 9/12 completed (75.0%)
+            <div class="progress-bar">
+                <div class="progress-fill" style="width: 75.0%"></div>
+            </div>
+        </div>
+            <div><strong>Total Issues Found:</strong> 1</div>
+            
+                <div class="detailed-issues">
+                    <strong>Detailed Issues Breakdown:</strong>
+                    
+                    <div class="issue-category">
+                        <h4>Health Check Issues (1)</h4>
+                        <ul class="issues-list"><li>Attendance health check should be completed 1 week after class start (2025-08-12)</li></ul>
+                    </div>
+                </div>
+                <style>
+                .issue-category h4 { margin: 0.5rem 0 0.25rem 0; color: #dc3545; font-size: 0.9rem; }
+                .detailed-issues { margin-top: 1rem; }
+                </style>
+        </div>
+        <div class="detailed-section close-section">
+            <div class="section-title">Close CRM Details</div>
+            
+            
+            <div class="team-details">
+                <strong>Close Team Members:</strong>
+                <div class="managers-list"><span class="manager-tag">Michelle</span><span class="manager-tag">Desiree</span><span class="manager-tag">Juan</span></div>
+            </div>
+            <div class="activities-details">
+                <div class="activity-count"><strong>Total Activities in Date Range:</strong> 8</div>
+                <div class="detailed-analysis">
+                    <strong>Detailed Analysis:</strong>
+                    <div class="analysis-text"><p><strong>1. Activity Summary</strong>
+Date range: 2025-09-21 to 2025-09-28
+8 activities and communications
+- Email communication regarding student data import results and duplicate rows</p>
+<p><strong>2. Sync &amp; Data Import Status</strong>
+- Student data import results showed 1,366 rows found in the file, 1,243 imported, and 123 ignored or failed to import due to duplicate student IDs
+- Recurring issue with duplicate student IDs in the import data</p>
+<p><strong>3. Client Issues &amp; Concerns</strong>
+- Duplicate student IDs in the data were causing rows to be ignored during the import
+- Client was advised to ensure their data does not contain duplicate student IDs</p>
+<p><strong>4. Action Items &amp; Resolutions</strong>
+- Provided client with detailed import results and advised them to address the duplicate student ID issue
+- No outstanding items requiring follow-up at this time</p></div>
+                </div>
+            </div>
+        </div>
+        <style>
+        .activities-details { margin-top: 1rem; }
+        .detailed-analysis { margin-top: 0.75rem; }
+        .team-details { margin: 0.75rem 0; }
+        </style>
+            <div class="detailed-section">
+                <div class="section-title">All Team Members</div>
+                <div class="managers-list"><span class="manager-tag">Michelle Van Peborgh</span><span class="manager-tag">Juan Chen</span><span class="manager-tag">Desiree Woo</span><span class="manager-tag">Michelle</span><span class="manager-tag">Desiree</span><span class="manager-tag">Juan</span></div>
+            </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="footer">
+        <p>Generated on 2025-09-28 at 21:59:15</p>
+        <p>Report: Last Week</p>
+        <p>Single Client Report</p>
+    </div>
+    
+    <script>
+        // DOM elements
+        const searchInput = document.getElementById('searchInput');
+        const filterButtons = document.querySelectorAll('.filter-btn');
+        const clientsGrid = document.getElementById('clientsGrid');
+        const statsElements = {
+            total: document.getElementById('totalClients'),
+            both: document.getElementById('bothSystems'),
+            asanaOnly: document.getElementById('asanaOnly'),
+            closeOnly: document.getElementById('closeOnly')
+        };
+        
+        // State
+        let currentFilter = 'all';
+        let currentSearch = '';
+        
+        // Initialize
+        updateStats();
+        
+        // Event listeners
+        searchInput.addEventListener('input', handleSearch);
+        filterButtons.forEach(btn => {
+            btn.addEventListener('click', handleFilter);
+        });
+        
+        function handleSearch(e) {
+            currentSearch = e.target.value.toLowerCase();
+            filterClients();
+        }
+        
+        function handleFilter(e) {
+            filterButtons.forEach(btn => btn.classList.remove('active'));
+            e.target.classList.add('active');
+            currentFilter = e.target.getAttribute('data-filter');
+            filterClients();
+        }
+        
+        function filterClients() {
+            const cards = document.querySelectorAll('.client-card');
+            let visibleCount = 0;
+            
+            cards.forEach(card => {
+                const clientName = card.getAttribute('data-client-name')?.toLowerCase() || '';
+                const accountManagers = card.getAttribute('data-account-managers')?.toLowerCase() || '';
+                const dataType = card.getAttribute('data-type');
+                const hasIssues = card.getAttribute('data-has-issues') === 'true';
+                
+                // Check search match
+                const searchMatch = currentSearch === '' || 
+                    clientName.includes(currentSearch) || 
+                    accountManagers.includes(currentSearch);
+                
+                // Check filter match
+                let filterMatch = false;
+                switch (currentFilter) {
+                    case 'all':
+                        filterMatch = true;
+                        break;
+                    case 'both':
+                        filterMatch = dataType === 'both';
+                        break;
+                    case 'asana-only':
+                        filterMatch = dataType === 'asana-only';
+                        break;
+                    case 'close-only':
+                        filterMatch = dataType === 'close-only';
+                        break;
+                    case 'issues':
+                        filterMatch = hasIssues;
+                        break;
+                }
+                
+                if (searchMatch && filterMatch) {
+                    card.style.display = 'block';
+                    visibleCount++;
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+            
+            // Update visible count
+            statsElements.total.textContent = visibleCount;
+        }
+        
+        function updateStats() {
+            const cards = document.querySelectorAll('.client-card');
+            let bothCount = 0, asanaOnlyCount = 0, closeOnlyCount = 0;
+            
+            cards.forEach(card => {
+                const dataType = card.getAttribute('data-type');
+                switch (dataType) {
+                    case 'both': bothCount++; break;
+                    case 'asana-only': asanaOnlyCount++; break;
+                    case 'close-only': closeOnlyCount++; break;
+                }
+            });
+            
+            statsElements.both.textContent = bothCount;
+            statsElements.asanaOnly.textContent = asanaOnlyCount;
+            statsElements.closeOnly.textContent = closeOnlyCount;
+        }
+        
+        // Expandable card functionality
+        function initializeExpandableCards() {
+            const cards = document.querySelectorAll('.client-card');
+            cards.forEach(card => {
+                const toggle = card.querySelector('.expand-toggle');
+                const details = card.querySelector('.client-details');
+                
+                if (toggle && details) {
+                    toggle.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        
+                        const isExpanded = details.classList.contains('expanded');
+                        
+                        if (isExpanded) {
+                            details.classList.remove('expanded');
+                            toggle.classList.remove('expanded');
+                            toggle.innerHTML = '+';
+                        } else {
+                            details.classList.add('expanded');
+                            toggle.classList.add('expanded');
+                            toggle.innerHTML = '-';
+                        }
+                    });
+                }
+            });
+        }
+        
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeExpandableCards();
+        });
+        
+        // Debug function to check if JavaScript is working
+        console.log('JavaScript loaded successfully');
+        console.log('Found', document.querySelectorAll('.client-card').length, 'client cards');
+    </script>
+</body>
+</html>
